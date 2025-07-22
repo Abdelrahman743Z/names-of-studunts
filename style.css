@@ -1,0 +1,68 @@
+body {
+    font-family: 'Cairo', Arial, sans-serif;
+    background: #f5f6fa;
+    margin: 0;
+    padding: 0;
+    direction: rtl;
+  }
+  .container {
+    max-width: 500px;
+    margin: 40px auto;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 30px 20px 20px 20px;
+  }
+  h2 {
+    text-align: center;
+    color: #273c75;
+    margin-bottom: 25px;
+  }
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 30px;
+  }
+  input[type="text"], input[type="number"] {
+    padding: 10px;
+    border: 1px solid #dcdde1;
+    border-radius: 5px;
+    font-size: 1rem;
+  }
+  button {
+    background: #273c75;
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  button:hover {
+    background: #40739e;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  th, td {
+    padding: 10px;
+    border-bottom: 1px solid #f1f2f6;
+    text-align: center;
+  }
+  th {
+    background: #f1f2f6;
+    color: #353b48;
+  }
+  .msg {
+    text-align: center;
+    color: #44bd32;
+    margin-bottom: 10px;
+    font-size: 1rem;
+  }
+  .error {
+    color: #e84118;
+  }

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>درجات الطلاب</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Firebase App (core) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <!-- Firebase Database -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>درجات الطلاب</h2>
+    <div id="msg" class="msg"></div>
+    <form id="gradeForm">
+      <input type="text" id="studentName" placeholder="اسم الطالب" required>
+      <input type="number" id="studentGrade" placeholder="الدرجة" min="0" max="100" required>
+      <button type="submit">إضافة الدرجة</button>
+    </form>
+    <table>
+      <thead>
+        <tr>
+          <th>اسم الطالب</th>
+          <th>الدرجة</th>
+          <th>إجراءات</th>
+        </tr>
+      </thead>
+      <tbody id="gradesTable">
+        <!-- سيتم تعبئة الدرجات هنا -->
+      </tbody>
+    </table>
+  </div>
+  <script>
+    // إعدادات مشروعك من Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0oOW5IRNm7TBpSJi-WL5_BIlcQDOe5WY",
+      authDomain: "any-thing-93729.firebaseapp.com",
+      databaseURL: "https://any-thing-93729-default-rtdb.firebaseio.com/",
+      projectId: "any-thing-93729",
+      storageBucket: "any-thing-93729.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    // تهيئة Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // عناصر الصفحة
+    const gradeForm = document.getElementById('gradeForm');
+    const studentName = document.getElementById('studentName');
+    const studentGrade = document.getElementById('studentGrade');
+    const gradesTable = document.getElementById('gradesTable');
+    const msg = document.getElementById('msg');
+
+    // عرض الدرجات تلقائياً
+    function fetchGrades() {
+      database.ref('grades').on('value', (snapshot) => {
+        const data = snapshot.val();
+        gradesTable.innerHTML = '';
+        if (data) {
+          Object.entries(data).forEach(([key, entry]) => {
+            const row = `<tr data-key="${key}">
+              <td>${entry.name}</td>
+              <td>${entry.grade}</td>
+              <td>
+                <button class="edit-btn">تعديل</button>
+                <button class="delete-btn">حذف</button>
+              </td>
+            </tr>`;
+            gradesTable.innerHTML += row;
+          });
+        } else {
+          gradesTable.innerHTML = '<tr><td colspan="3">لا توجد بيانات</td></tr>';
+        }
+      });
+    }
+    fetchGrades();
+
+    // حذف درجة طالب
+    gradesTable.addEventListener('click', function(e) {
+      if (e.target.classList.contains('delete-btn')) {
+        const row = e.target.closest('tr');
+        const key = row.getAttribute('data-key');
+        if (confirm('هل أنت متأكد من حذف الدرجة؟')) {
+          database.ref('grades/' + key).remove((error) => {
+            if (error) {
+              showMsg('حدث خطأ أثناء الحذف', true);
+            } else {
+              showMsg('تم حذف الدرجة بنجاح');
+            }
+          });
+        }
+      }
+      // تعديل درجة طالب
+      if (e.target.classList.contains('edit-btn')) {
+        const row = e.target.closest('tr');
+        const key = row.getAttribute('data-key');
+        const name = row.children[0].textContent;
+        const grade = row.children[1].textContent;
+        studentName.value = name;
+        studentGrade.value = grade;
+        gradeForm.setAttribute('data-edit-key', key);
+        gradeForm.querySelector('button[type="submit"]').textContent = 'تعديل الدرجة';
+      }
+    });
+
+    // تعديل أو إضافة درجة
+    gradeForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = studentName.value.trim();
+      const grade = studentGrade.value.trim();
+      if (!name || !grade) {
+        showMsg('يرجى إدخال جميع البيانات', true);
+        return;
+      }
+      const editKey = gradeForm.getAttribute('data-edit-key');
+      if (editKey) {
+        // تعديل
+        database.ref('grades/' + editKey).set({
+          name: name,
+          grade: Number(grade)
+        }, (error) => {
+          if (error) {
+            showMsg('حدث خطأ أثناء التعديل', true);
+          } else {
+            showMsg('تم تعديل الدرجة بنجاح');
+            gradeForm.reset();
+            gradeForm.removeAttribute('data-edit-key');
+            gradeForm.querySelector('button[type="submit"]').textContent = 'إضافة الدرجة';
+          }
+        });
+      } else {
+        // إضافة جديد
+        const newRef = database.ref('grades').push();
+        newRef.set({
+          name: name,
+          grade: Number(grade)
+        }, (error) => {
+          if (error) {
+            showMsg('حدث خطأ أثناء الحفظ', true);
+          } else {
+            showMsg('تمت إضافة الدرجة بنجاح');
+            gradeForm.reset();
+          }
+        });
+      }
+    });
+
+    // رسالة للمستخدم
+    function showMsg(message, isError = false) {
+      msg.textContent = message;
+      msg.className = isError ? 'msg error' : 'msg';
+      setTimeout(() => { msg.textContent = ''; }, 2000);
+    }
+  </script>
+</body>
+</html>
