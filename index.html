@@ -3,38 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>درجات الطلاب</title>
+  <title>نظام إدارة درجات الطلاب</title>
   <link rel="stylesheet" href="style.css">
-
-  <!-- Firebase App (core) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <!-- Firebase Database -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
+  <canvas id="bg-canvas"></canvas>
+  <!-- الكانفس للخلفية -->
   <div class="container">
-    <h2>درجات الطلاب</h2>
+    <h2>📚 نظام إدارة درجات الطلاب</h2>
     <div id="msg" class="msg"></div>
+    <input type="text" id="searchInput" placeholder="🔍 ابحث باسم الطالب..." class="search-bar">
+
+    <div class="stats">
+      <div>📌 عدد الطلاب: <span id="totalStudents">0</span></div>
+      <div>📊 أعلى عربي: <span id="maxArabic">-</span> | متوسط: <span id="avgArabic">-</span></div>
+      <div>📊 أعلى رياضيات: <span id="maxMath">-</span> | متوسط: <span id="avgMath">-</span></div>
+      <div>📊 أعلى إنجليزي: <span id="maxEnglish">-</span> | متوسط: <span id="avgEnglish">-</span></div>
+      <div>📊 أعلى علوم: <span id="maxScience">-</span> | متوسط: <span id="avgScience">-</span></div>
+    </div>
+
     <form id="gradeForm">
       <input type="text" id="studentName" placeholder="اسم الطالب" required>
-      <input type="number" id="studentGrade" placeholder="الدرجة" min="0" max="100" required>
-      <button type="submit">إضافة الدرجة</button>
+      <input type="number" id="arabicGrade" placeholder="درجة العربي" min="0" max="100" required>
+      <input type="number" id="mathGrade" placeholder="درجة الرياضيات" min="0" max="100" required>
+      <input type="number" id="englishGrade" placeholder="درجة الإنجليزي" min="0" max="100" required>
+      <input type="number" id="scienceGrade" placeholder="درجة العلوم" min="0" max="100" required>
+      <button type="submit">➕ إضافة / تعديل</button>
     </form>
+
     <table>
       <thead>
         <tr>
           <th>اسم الطالب</th>
-          <th>الدرجة</th>
-          <th>إجراءات</th>
+          <th>عربي</th>
+          <th>رياضيات</th>
+          <th>إنجليزي</th>
+          <th>علوم</th>
+          <th>المجموع</th>
+          <th>التقدير العام</th>
+          <th>الإجراءات</th>
         </tr>
       </thead>
-      <tbody id="gradesTable">
-        <!-- سيتم تعبئة الدرجات هنا -->
-      </tbody>
+      <tbody id="gradesTable"></tbody>
     </table>
+
+    <canvas id="chartCanvas" width="400" height="200"></canvas>
   </div>
+
   <script>
-    // إعدادات مشروعك من Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyC0oOW5IRNm7TBpSJi-WL5_BIlcQDOe5WY",
       authDomain: "any-thing-93729.firebaseapp.com",
@@ -44,117 +63,257 @@
       messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
       appId: "YOUR_APP_ID"
     };
-    // تهيئة Firebase
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // عناصر الصفحة
     const gradeForm = document.getElementById('gradeForm');
-    const studentName = document.getElementById('studentName');
-    const studentGrade = document.getElementById('studentGrade');
     const gradesTable = document.getElementById('gradesTable');
     const msg = document.getElementById('msg');
 
-    // عرض الدرجات تلقائياً
-    function fetchGrades() {
-      database.ref('grades').on('value', (snapshot) => {
-        const data = snapshot.val();
-        gradesTable.innerHTML = '';
-        if (data) {
-          Object.entries(data).forEach(([key, entry]) => {
-            const row = `<tr data-key="${key}">
-              <td>${entry.name}</td>
-              <td>${entry.grade}</td>
-              <td>
-                <button class="edit-btn">تعديل</button>
-                <button class="delete-btn">حذف</button>
-              </td>
-            </tr>`;
-            gradesTable.innerHTML += row;
-          });
-        } else {
-          gradesTable.innerHTML = '<tr><td colspan="3">لا توجد بيانات</td></tr>';
-        }
-      });
+    const inputs = {
+      name: document.getElementById('studentName'),
+      arabic: document.getElementById('arabicGrade'),
+      math: document.getElementById('mathGrade'),
+      english: document.getElementById('englishGrade'),
+      science: document.getElementById('scienceGrade')
+    };
+
+    function calcResult(g) {
+      if (g >= 90) return 'ممتاز';
+      if (g >= 80) return 'جيد جدًا';
+      if (g >= 60) return 'جيد';
+      if (g >= 50) return 'مقبول';
+      return 'راسب';
     }
-    fetchGrades();
 
-    // حذف درجة طالب
-    gradesTable.addEventListener('click', function(e) {
-      if (e.target.classList.contains('delete-btn')) {
-        const row = e.target.closest('tr');
-        const key = row.getAttribute('data-key');
-        if (confirm('هل أنت متأكد من حذف الدرجة؟')) {
-          database.ref('grades/' + key).remove((error) => {
-            if (error) {
-              showMsg('حدث خطأ أثناء الحذف', true);
-            } else {
-              showMsg('تم حذف الدرجة بنجاح');
-            }
-          });
-        }
-      }
-      // تعديل درجة طالب
-      if (e.target.classList.contains('edit-btn')) {
-        const row = e.target.closest('tr');
-        const key = row.getAttribute('data-key');
-        const name = row.children[0].textContent;
-        const grade = row.children[1].textContent;
-        studentName.value = name;
-        studentGrade.value = grade;
-        gradeForm.setAttribute('data-edit-key', key);
-        gradeForm.querySelector('button[type="submit"]').textContent = 'تعديل الدرجة';
-      }
-    });
-
-    // تعديل أو إضافة درجة
-    gradeForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const name = studentName.value.trim();
-      const grade = studentGrade.value.trim();
-      if (!name || !grade) {
-        showMsg('يرجى إدخال جميع البيانات', true);
-        return;
-      }
-      const editKey = gradeForm.getAttribute('data-edit-key');
-      if (editKey) {
-        // تعديل
-        database.ref('grades/' + editKey).set({
-          name: name,
-          grade: Number(grade)
-        }, (error) => {
-          if (error) {
-            showMsg('حدث خطأ أثناء التعديل', true);
-          } else {
-            showMsg('تم تعديل الدرجة بنجاح');
-            gradeForm.reset();
-            gradeForm.removeAttribute('data-edit-key');
-            gradeForm.querySelector('button[type="submit"]').textContent = 'إضافة الدرجة';
-          }
-        });
-      } else {
-        // إضافة جديد
-        const newRef = database.ref('grades').push();
-        newRef.set({
-          name: name,
-          grade: Number(grade)
-        }, (error) => {
-          if (error) {
-            showMsg('حدث خطأ أثناء الحفظ', true);
-          } else {
-            showMsg('تمت إضافة الدرجة بنجاح');
-            gradeForm.reset();
-          }
-        });
-      }
-    });
-
-    // رسالة للمستخدم
     function showMsg(message, isError = false) {
       msg.textContent = message;
       msg.className = isError ? 'msg error' : 'msg';
       setTimeout(() => { msg.textContent = ''; }, 2000);
     }
+
+    function resetForm() {
+      gradeForm.reset();
+      gradeForm.removeAttribute('data-key');
+    }
+
+    // رسم الجدول بدون نظام النجوم
+    function renderTable(students) {
+      gradesTable.innerHTML = '';
+      if (students.length === 0) {
+        gradesTable.innerHTML = '<tr><td colspan="7">لا توجد بيانات</td></tr>';
+        return;
+      }
+      students.forEach(entry => {
+        // لا نجوم ولا تمييز صفوف
+        const cellClass = (result) => result === 'ممتاز' ? 'excellent-cell' : '';
+        // حساب النسبة المئوية
+        const total = entry.subjects.arabic.grade + entry.subjects.math.grade + entry.subjects.english.grade + entry.subjects.science.grade;
+        const percent = ((total / 400) * 100).toFixed(2);
+        const percentClass = percent >= 90 ? 'percent-high' : percent >= 80 ? 'percent-good' : '';
+        const row = `<tr data-key="${entry.key}">
+          <td>${entry.name}</td>
+          <td class="${cellClass(entry.subjects.arabic.result)}">${entry.subjects.arabic.grade} (${entry.subjects.arabic.result})</td>
+          <td class="${cellClass(entry.subjects.math.result)}">${entry.subjects.math.grade} (${entry.subjects.math.result})</td>
+          <td class="${cellClass(entry.subjects.english.result)}">${entry.subjects.english.grade} (${entry.subjects.english.result})</td>
+          <td class="${cellClass(entry.subjects.science.result)}">${entry.subjects.science.grade} (${entry.subjects.science.result})</td>
+          <td class="${percentClass}">${percent}%</td>
+          <td>
+            <button class="delete-btn">حذف</button>
+          </td>
+        </tr>`;
+        gradesTable.innerHTML += row;
+      });
+    }
+
+    function updateStats(data) {
+      const subjects = ['arabic', 'math', 'english', 'science'];
+      document.getElementById('totalStudents').textContent = data.length;
+      subjects.forEach(sub => {
+        const grades = data.map(s => s.subjects[sub].grade);
+        const max = grades.length ? Math.max(...grades) : '-';
+        const avg = grades.length ? (grades.reduce((a,b)=>a+b,0)/grades.length).toFixed(1) : '-';
+        document.getElementById('max' + capitalize(sub)).textContent = max;
+        document.getElementById('avg' + capitalize(sub)).textContent = avg;
+      });
+    }
+
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function fetchData() {
+      database.ref('grades').on('value', snap => {
+        const val = snap.val();
+        const list = [];
+        for (const key in val) {
+          list.push({ key, ...val[key] });
+        }
+        renderTable(list);
+        updateStats(list);
+        renderChart(list);
+        window.allStudents = list;
+      });
+    }
+
+    function renderChart(data) {
+      const labels = data.map(s => s.name);
+      const values = data.map(s => {
+        const g = s.subjects;
+        return (g.arabic.grade + g.math.grade + g.english.grade + g.science.grade) / 4;
+      });
+      new Chart(document.getElementById('chartCanvas'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'المتوسط العام',
+            data: values,
+            backgroundColor: '#273c75'
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+
+    function editStudent(key) {
+      const student = window.allStudents.find(s => s.key === key);
+      if (!student) return;
+      gradeForm.setAttribute('data-key', key);
+      inputs.name.value = student.name;
+      ['arabic','math','english','science'].forEach(sub => {
+        inputs[sub].value = student.subjects[sub].grade;
+      });
+    }
+
+    function deleteStudent(key) {
+      if (confirm('هل تريد حذف هذا الطالب؟')) {
+        database.ref('grades/' + key).remove();
+        showMsg('تم الحذف بنجاح');
+      }
+    }
+
+    gradeForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const key = gradeForm.getAttribute('data-key');
+      const name = inputs.name.value.trim();
+      if (!name) return showMsg('يرجى إدخال الاسم', true);
+
+      const subjects = {};
+      ['arabic','math','english','science'].forEach(sub => {
+        const g = Number(inputs[sub].value);
+        subjects[sub] = { grade: g, result: calcResult(g) };
+      });
+
+      const data = { name, subjects };
+      const ref = key ? database.ref('grades/' + key) : database.ref('grades').push();
+      ref.set(data, err => {
+        if (err) showMsg('خطأ في الحفظ', true);
+        else showMsg('تم الحفظ بنجاح');
+        resetForm();
+      });
+    });
+
+    document.getElementById('searchInput').addEventListener('input', function() {
+      const q = this.value.trim();
+      if (!q) return renderTable(window.allStudents);
+      const filtered = window.allStudents.filter(s => s.name.includes(q));
+      renderTable(filtered);
+    });
+
+    fetchData();
+  </script>
+  <script>
+    // Animation background: نقاط وخطوط تتفاعل مع الماوس
+    const bgCanvas = document.getElementById('bg-canvas');
+    const ctx = bgCanvas.getContext('2d');
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    bgCanvas.width = width;
+    bgCanvas.height = height;
+    bgCanvas.style.position = 'fixed';
+    bgCanvas.style.top = 0;
+    bgCanvas.style.left = 0;
+    bgCanvas.style.zIndex = 0;
+    bgCanvas.style.pointerEvents = 'none';
+    bgCanvas.style.width = '100vw';
+    bgCanvas.style.height = '100vh';
+    document.body.style.position = 'relative';
+    // نقاط
+    const POINTS = 100;
+    const DIST = 200; // زيادة المسافة لزيادة كثافة الخطوط
+    const points = [];
+    for (let i = 0; i < POINTS; i++) {
+      points.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.7,
+        vy: (Math.random() - 0.5) * 0.7
+      });
+    }
+    let mouse = { x: width/2, y: height/2 };
+    window.addEventListener('mousemove', e => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+    window.addEventListener('resize', () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      bgCanvas.width = width;
+      bgCanvas.height = height;
+    });
+    function draw() {
+      ctx.clearRect(0, 0, width, height);
+      // رسم الخطوط
+      for (let i = 0; i < POINTS; i++) {
+        for (let j = i + 1; j < POINTS; j++) {
+          const dx = points[i].x - points[j].x;
+          const dy = points[i].y - points[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < DIST) {
+            ctx.strokeStyle = `rgba(120,170,255,${0.18 + 0.7 * (1 - dist/DIST)})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(points[i].x, points[i].y);
+            ctx.lineTo(points[j].x, points[j].y);
+            ctx.stroke();
+          }
+        }
+        // خط للماوس
+        const dxm = points[i].x - mouse.x;
+        const dym = points[i].y - mouse.y;
+        const distm = Math.sqrt(dxm*dxm + dym*dym);
+        if (distm < DIST) {
+          ctx.strokeStyle = `rgba(120,170,255,${0.25 + 0.7 * (1 - distm/DIST)})`;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(points[i].x, points[i].y);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.stroke();
+        }
+      }
+      // رسم النقاط
+      for (let i = 0; i < POINTS; i++) {
+        ctx.beginPath();
+        ctx.arc(points[i].x, points[i].y, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = '#7ab7ff';
+        ctx.fill();
+      }
+    }
+    function update() {
+      for (let i = 0; i < POINTS; i++) {
+        points[i].x += points[i].vx;
+        points[i].y += points[i].vy;
+        if (points[i].x < 0 || points[i].x > width) points[i].vx *= -1;
+        if (points[i].y < 0 || points[i].y > height) points[i].vy *= -1;
+      }
+    }
+    function animate() {
+      update();
+      draw();
+      requestAnimationFrame(animate);
+    }
+    animate();
   </script>
 </body>
 </html>
